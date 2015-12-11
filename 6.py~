@@ -1,0 +1,2 @@
+def toggle(grid, x, y):
+    grid[x][y] = 1 - grid[x][y]
