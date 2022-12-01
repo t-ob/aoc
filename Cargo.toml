@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "common",
+    "aoc2021",
+    "aoc2022",
+]
