@@ -4,6 +4,10 @@ pub fn read_stdin_lines_to_vec<T: FromStr + Debug>()  -> Vec<T> where <T as From
     io::stdin().lines().map(|line| line.expect("Unable to read line").parse::<T>().expect("Unable to parse line")).collect()
 }
 
+pub fn read_stdin_lines_to_iter<T: FromStr + Debug>()  -> impl Iterator<Item=T> where <T as FromStr>::Err: Debug {
+    io::stdin().lines().map(|line| line.expect("Unable to read line").parse::<T>().expect("Unable to parse line"))
+}
+
 pub fn collect_stdin_lines<T: FromStr + Debug>(delimiter: &str) -> Vec<Vec<T>> where <T as FromStr>::Err: Debug {
     let mut buf = String::new();
     io::stdin().read_to_string(&mut buf).expect("Unable to read stdin to string");
