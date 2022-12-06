@@ -1,7 +1,3 @@
-fn count_ones(buf: &[usize]) -> usize {
-    buf.iter().filter(|c| **c == 1).count()
-}
-
 fn main() {
     let input: String = common::io::read_stdin();
 
@@ -13,11 +9,13 @@ fn main() {
     let mut i = 0;
     let mut part_1 = None;
     let mut part_2 = None;
+    let mut part_1_count = 0;
+    let mut part_2_count = 0;
     while i < input_chars.len() {
-        if part_1.is_none() && count_ones(&part_1_buf) == 4 {
+        if part_1.is_none() && part_1_count == 4 {
             part_1 = Some(i);
         }
-        if part_2.is_none() && count_ones(&part_2_buf) == 14 {
+        if part_2.is_none() && part_2_count == 14 {
             part_2 = Some(i);
         }
 
@@ -29,17 +27,29 @@ fn main() {
 
         if part_1.is_none() {
             part_1_buf[next_char as usize - 'a' as usize] += 1;
+            if part_1_buf[next_char as usize - 'a' as usize] == 1 {
+                part_1_count += 1;
+            }
             if i >= 4 {
                 let prev_char = input_chars[i - 4];
                 part_1_buf[prev_char as usize - 'a' as usize] -= 1;
+                if part_1_buf[prev_char as usize - 'a' as usize] == 0 {
+                    part_1_count -= 1;
+                }
             }
         }
 
         if part_2.is_none() {
             part_2_buf[next_char as usize - 'a' as usize] += 1;
+            if part_2_buf[next_char as usize - 'a' as usize] == 1 {
+                part_2_count += 1;
+            }
             if i >= 14 {
                 let prev_char = input_chars[i - 14];
                 part_2_buf[prev_char as usize - 'a' as usize] -= 1;
+                if part_2_buf[prev_char as usize - 'a' as usize] == 0 {
+                    part_2_count -= 1;
+                }
             }
         }
 
