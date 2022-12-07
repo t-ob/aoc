@@ -1,9 +1,7 @@
 use aoc2022::d7;
 
 fn main() {
-    let terminal_ouput_lines = common::io::read_stdin_lines_to_vec::<d7::TerminalOutputLine>();
-
-    let inode_table = d7::InodeTable::from_terminal_output_lines(&terminal_ouput_lines);
+    let inode_table = common::io::read_stdin::<d7::InodeTable>();
 
     let dir_inode_sizes = inode_table.dir_sizes(0);
     let part_1: usize = dir_inode_sizes

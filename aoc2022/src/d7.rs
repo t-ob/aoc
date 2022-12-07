@@ -1,50 +1,6 @@
 use std::str::FromStr;
 
 #[derive(Debug)]
-pub enum ChangeDirArg {
-    In(String),
-    Out,
-    Root,
-}
-
-#[derive(Debug)]
-pub enum TerminalOutputLine {
-    ChangeDir(ChangeDirArg),
-    List,
-    File(usize, String),
-    Dir(String),
-}
-
-impl FromStr for TerminalOutputLine {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s_bytes = s.as_bytes();
-        match (s_bytes[0], s_bytes[2]) {
-            (b'$', b'c') => match &s_bytes[5..] {
-                [b'/'] => Ok(Self::ChangeDir(ChangeDirArg::Root)),
-                [b'.', b'.'] => Ok(Self::ChangeDir(ChangeDirArg::Out)),
-                bs => Ok(Self::ChangeDir(ChangeDirArg::In(
-                    String::from_utf8(Vec::from(bs)).unwrap(),
-                ))),
-            },
-            (b'$', _) => Ok(Self::List),
-            (b'd', _) => Ok(Self::Dir(
-                String::from_utf8(Vec::from(&s_bytes[4..])).unwrap(),
-            )),
-            _ => {
-                let mut split_line = s.split(' ');
-
-                let size = split_line.next().unwrap().parse().unwrap();
-                let name = String::from(split_line.next().unwrap());
-
-                Ok(Self::File(size, name))
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
 struct DirInode {
     parent_inode_number: Option<usize>,
     name: String,
@@ -74,68 +30,6 @@ impl InodeTable {
             file_inodes,
             dir_inodes,
         }
-    }
-
-    pub fn from_terminal_output_lines(terminal_ouput_lines: &[TerminalOutputLine]) -> InodeTable {
-        let mut inode_table = InodeTable::new();
-
-        let mut line_number = 0;
-        let mut dir_inode_numbers = vec![];
-        while line_number < terminal_ouput_lines.len() {
-            let line = &terminal_ouput_lines[line_number];
-            let next_line = &terminal_ouput_lines[line_number + 1];
-            match (line, next_line) {
-                (TerminalOutputLine::ChangeDir(ChangeDirArg::Out), _) => {
-                    dir_inode_numbers.pop();
-
-                    line_number += 1;
-                }
-                (TerminalOutputLine::ChangeDir(arg), TerminalOutputLine::List) => {
-                    let dir_inode = match arg {
-                        ChangeDirArg::Root => inode_table.add_dir_inode(DirInode {
-                            parent_inode_number: None,
-                            name: String::from("/"),
-                            subdir_inodes: vec![],
-                            file_inodes: vec![],
-                            size: 0,
-                        }),
-                        ChangeDirArg::In(subdir) => inode_table.add_dir_inode(DirInode {
-                            parent_inode_number: Some(*dir_inode_numbers.last().unwrap()),
-                            name: String::from(subdir),
-                            subdir_inodes: vec![],
-                            file_inodes: vec![],
-                            size: 0,
-                        }),
-                        _ => unreachable!(),
-                    };
-
-                    dir_inode_numbers.push(dir_inode);
-
-                    let mut j = line_number + 2;
-
-                    while j < terminal_ouput_lines.len() {
-                        match &terminal_ouput_lines[j] {
-                            TerminalOutputLine::File(file_size, file_name) => {
-                                inode_table.add_file_inode(FileInode {
-                                    dir_inode_number: dir_inode,
-                                    name: String::from(file_name),
-                                    size: *file_size,
-                                });
-                            }
-                            TerminalOutputLine::ChangeDir(_) => {
-                                break;
-                            }
-                            _ => {}
-                        }
-                        j += 1
-                    }
-                    line_number = j;
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        inode_table
     }
 
     fn add_dir_inode(&mut self, inode: DirInode) -> usize {
@@ -191,5 +85,66 @@ impl InodeTable {
         }
 
         result
+    }
+}
+
+impl FromStr for InodeTable {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut inode_table = Self::new();
+        
+        let mut dir_inode_numbers = vec![];
+
+        for line in s.lines() {
+            let s_bytes = line.as_bytes();
+
+            match (s_bytes[0], s_bytes[2]) {
+                (b'$', b'c') => match &s_bytes[5..] {
+                    [b'/'] => {
+                        let dir_inode_number = inode_table.add_dir_inode(DirInode {
+                            parent_inode_number: None,
+                            name: String::from("/"),
+                            subdir_inodes: vec![],
+                            file_inodes: vec![],
+                            size: 0,
+                        });
+
+                        dir_inode_numbers.push(dir_inode_number);
+                    },
+                    [b'.', b'.'] => {
+                        dir_inode_numbers.pop();
+                    },
+                    bs => {
+                        let parent_inode_number = dir_inode_numbers.last().unwrap();
+                        let dir_inode_number = inode_table.add_dir_inode(DirInode {
+                            parent_inode_number: Some(*parent_inode_number),
+                            name: String::from_utf8(Vec::from(bs)).unwrap(),
+                            subdir_inodes: vec![],
+                            file_inodes: vec![],
+                            size: 0,
+                        });
+
+                        dir_inode_numbers.push(dir_inode_number);
+                    },
+                },
+                (b'$', _)
+                | (b'd', _) => {},
+                _ => {
+                    let mut split_line = line.split(' ');
+    
+                    let size = split_line.next().unwrap().parse().unwrap();
+                    let name = String::from(split_line.next().unwrap());
+    
+                    inode_table.add_file_inode(FileInode {
+                        dir_inode_number: *dir_inode_numbers.last().unwrap(),
+                        name: name,
+                        size: size,
+                    });
+                }
+            }
+        }
+
+        Ok(inode_table)
     }
 }
