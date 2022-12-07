@@ -93,7 +93,7 @@ impl FromStr for InodeTable {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut inode_table = Self::new();
-        
+
         let mut dir_inode_numbers = vec![];
 
         for line in s.lines() {
@@ -111,10 +111,10 @@ impl FromStr for InodeTable {
                         });
 
                         dir_inode_numbers.push(dir_inode_number);
-                    },
+                    }
                     [b'.', b'.'] => {
                         dir_inode_numbers.pop();
-                    },
+                    }
                     bs => {
                         let parent_inode_number = dir_inode_numbers.last().unwrap();
                         let dir_inode_number = inode_table.add_dir_inode(DirInode {
@@ -126,16 +126,15 @@ impl FromStr for InodeTable {
                         });
 
                         dir_inode_numbers.push(dir_inode_number);
-                    },
+                    }
                 },
-                (b'$', _)
-                | (b'd', _) => {},
+                (b'$', _) | (b'd', _) => {}
                 _ => {
                     let mut split_line = line.split(' ');
-    
+
                     let size = split_line.next().unwrap().parse().unwrap();
                     let name = String::from(split_line.next().unwrap());
-    
+
                     inode_table.add_file_inode(FileInode {
                         dir_inode_number: *dir_inode_numbers.last().unwrap(),
                         name: name,
