@@ -56,7 +56,7 @@ fn main() {
 
     for z in &moves {
         let total_moves = (z.re() + z.im()).abs();
-        let z_normalised = *z / total_moves;
+        let z_normalised = normalise_move(*z);
         let mut current_move = 0;
         while current_move < total_moves {
             current_move += 1;
@@ -78,7 +78,7 @@ fn main() {
 
     for z in &moves {
         let total_moves = (z.re() + z.im()).abs();
-        let z_normalised = *z / total_moves;
+        let z_normalised = normalise_move(*z);
         let mut current_move = 0;
         while current_move < total_moves {
             current_move += 1;
