@@ -57,16 +57,9 @@ fn main() {
         }
 
         let crt_idx = 40 * (pc / 40) + (pc % 40);
-        let pixel: u64 = 1 << (39 - pc % 40);
-        let sprite = if reg_x <= 38 {
-            7 << (37 - (reg_x - 1))
-        } else {
-            7 >> reg_x - 38
-        };
+        let pixel = (pc % 40) as i32;
 
-        if pixel & sprite > 0 {
-            crt[crt_idx] = 1;
-        }
+        crt[crt_idx] = ((reg_x - pixel).abs() <= 1) as u8;
 
         pc += 1;
     }
