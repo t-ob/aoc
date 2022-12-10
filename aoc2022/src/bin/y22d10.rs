@@ -6,6 +6,15 @@ enum Instruction {
     AddX(i32),
 }
 
+impl Instruction {
+    fn cycles(&self) -> usize {
+        match self {
+            Self::Noop => 1,
+            Self::AddX(_) => 2,
+        }
+    }
+}
+
 impl FromStr for Instruction {
     type Err = ();
 
@@ -42,22 +51,18 @@ fn main() {
             signal_strengths.push((pc as i32) * reg_x);
         }
 
-        let ready = pc == next_ready;
-        if ready {
+        if pc == next_ready {
             if let Some(&Instruction::AddX(x)) = executing_instruction {
                 reg_x += x;
             }
-            next_ready = match program[i] {
-                Instruction::Noop => pc + 1,
-                Instruction::AddX(_) => pc + 2,
-            };
-            executing_instruction = Some(&program[i]);
+            let next_instruction = &program[i];
+            next_ready = pc + next_instruction.cycles();
+            executing_instruction = Some(next_instruction);
 
             i += 1;
         }
 
         let pixel = (pc % 40) as i32;
-
         crt[pc] = ((reg_x - pixel).abs() <= 1) as u8;
 
         pc += 1;
