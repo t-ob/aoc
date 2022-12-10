@@ -21,8 +21,8 @@ impl FromStr for Instruction {
 
 fn render_crt(crt: &[u8; 240]) {
     for row in crt.chunks_exact(40) {
-        let aaaaa = String::from_iter(row.iter().map(|b| if *b == 0 { '.' } else { '#' }));
-        println!("{}", aaaaa);
+        let row = String::from_iter(row.iter().map(|b| if *b == 0 { '.' } else { '#' }));
+        println!("{}", row);
     }
 }
 
