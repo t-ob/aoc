@@ -56,10 +56,9 @@ fn main() {
             i += 1;
         }
 
-        let crt_idx = 40 * (pc / 40) + (pc % 40);
         let pixel = (pc % 40) as i32;
 
-        crt[crt_idx] = ((reg_x - pixel).abs() <= 1) as u8;
+        crt[pc] = ((reg_x - pixel).abs() <= 1) as u8;
 
         pc += 1;
     }
