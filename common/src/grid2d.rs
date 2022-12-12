@@ -50,6 +50,22 @@ impl<T: Copy> Grid2D<T> {
 }
 
 impl<T> Grid2D<T> {
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+
+    pub fn cols(&self) -> usize {
+        self.cols
+    }
+
+    pub fn get(&self, row: usize, col: usize) -> &T {
+        &self.data[row * self.cols + col]
+    }
+
+    pub fn set(&mut self, row: usize, col: usize, val: T) {
+        self.data[row * self.cols + col] = val;
+    }
+
     pub fn map_rows<U, F: Fn(&[T]) -> Vec<U>>(&self, f: F) -> Grid2D<U> {
         let mut data = vec![];
 
@@ -68,6 +84,19 @@ impl<T> Grid2D<T> {
 
     pub fn values(&self) -> &Vec<T> {
         &self.data
+    }
+}
+
+impl<T: Copy> Grid2D<T> {
+    pub fn from_value(rows: usize, cols: usize, val: &T) -> Grid2D<T> {
+        let data = vec![*val; rows * cols];
+
+        Self { rows, cols, data }
+    }
+
+    pub fn from_values(rows: usize, cols: usize, vals: &[T]) -> Grid2D<T> {
+        let data = vals.iter().map(|t| *t).collect();
+        Self { rows, cols, data }
     }
 }
 
