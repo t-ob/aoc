@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Complex<T> {
     re: T,
@@ -21,6 +23,12 @@ impl<T> Complex<T> {
 impl<T: std::ops::Mul<Output = T> + std::ops::Add<Output = T> + Copy> Complex<T> {
     pub fn norm(&self) -> T {
         self.re * self.re + self.im * self.im
+    }
+}
+
+impl<T: Hash> Hash for Complex<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (&self.re, &self.im).hash(state);
     }
 }
 
