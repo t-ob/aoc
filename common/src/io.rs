@@ -20,8 +20,8 @@ pub fn collect_stdin_lines<T: FromStr + Debug>(delimiter: &str) -> Vec<Vec<T>> w
     buf.split(delimiter).map(|group| group.lines().map(|line| line.parse().expect("Unable to parse line")).collect()).collect()
 }
 
-pub fn map_stdin_lines_to_vec<F: Fn(String) -> Result<T, U>, T, U: Debug>(f: F) -> Vec<T> {
-    io::stdin().lines().map(|line| f(line.expect("Unable to read line")).expect("Unable to parse line")).collect()
+pub fn map_stdin_lines_to_vec<F: Fn(String) -> T, T>(f: F) -> Vec<T> {
+    io::stdin().lines().map(|line| f(line.expect("Unable to read line"))).collect()
 }
 
 pub fn read_stdin<T: FromStr>() -> T where <T as FromStr>::Err: Debug {

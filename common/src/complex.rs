@@ -24,6 +24,17 @@ impl<T: std::ops::Mul<Output = T> + std::ops::Add<Output = T> + Copy> Complex<T>
     }
 }
 
+impl<T: std::ops::Add<Output = T>> std::ops::Add for Complex<T> {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            re: self.re + rhs.re,
+            im: self.im + rhs.im,
+        }
+    }
+}
+
 impl<T: std::ops::AddAssign> std::ops::AddAssign for Complex<T> {
     fn add_assign(&mut self, rhs: Self) {
         self.re += rhs.re;
@@ -39,6 +50,13 @@ impl<T: std::ops::Sub<Output = T>> std::ops::Sub for Complex<T> {
             re: self.re - rhs.re,
             im: self.im - rhs.im,
         }
+    }
+}
+
+impl<T: std::ops::SubAssign> std::ops::SubAssign for Complex<T> {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.re -= rhs.re;
+        self.im -= rhs.im;
     }
 }
 

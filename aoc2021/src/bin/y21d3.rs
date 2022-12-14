@@ -24,7 +24,7 @@ impl FromStr for Move {
 }
 
 fn main() {
-    let nums = io::map_stdin_lines_to_vec(|line| u16::from_str_radix(&line, 2));
+    let nums = io::map_stdin_lines_to_vec(|line| u16::from_str_radix(&line, 2).unwrap());
 
     let ddd = nums.iter().max().unwrap().next_power_of_two();
 
