@@ -10,13 +10,15 @@ impl<T> Complex<T> {
     pub fn new(re: T, im: T) -> Self {
         Complex { re, im }
     }
+}
 
-    pub fn re(&self) -> &T {
-        &self.re
+impl<T: Copy> Complex<T> {
+    pub fn re(&self) -> T {
+        self.re
     }
 
-    pub fn im(&self) -> &T {
-        &self.im
+    pub fn im(&self) -> T {
+        self.im
     }
 }
 

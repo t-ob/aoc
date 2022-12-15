@@ -52,7 +52,7 @@ fn main() {
     let mut tail = Complex::new(0, 0);
 
     let mut seen_end_positions_part_1 = HashSet::new();
-    seen_end_positions_part_1.insert((*tail.re(), *tail.im()));
+    seen_end_positions_part_1.insert((tail.re(), tail.im()));
 
     for z in &moves {
         let total_moves = (z.re() + z.im()).abs();
@@ -65,7 +65,7 @@ fn main() {
                 continue;
             }
             tail += normalise_move(head - tail);
-            seen_end_positions_part_1.insert((*tail.re(), *tail.im()));
+            seen_end_positions_part_1.insert((tail.re(), tail.im()));
         }
     }
 
@@ -74,7 +74,7 @@ fn main() {
 
     let mut knots = vec![Complex::new(0, 0); 10];
     let mut seen_end_positions_part_2 = HashSet::new();
-    seen_end_positions_part_2.insert((*knots[9].re(), *knots[9].im()));
+    seen_end_positions_part_2.insert((knots[9].re(), knots[9].im()));
 
     for z in &moves {
         let total_moves = (z.re() + z.im()).abs();
@@ -92,7 +92,7 @@ fn main() {
                 let next_move = normalise_move(head_knot - next_knot);
                 knots[k + 1] += next_move;
                 if k == 8 {
-                    seen_end_positions_part_2.insert((*knots[k + 1].re(), *knots[k + 1].im()));
+                    seen_end_positions_part_2.insert((knots[k + 1].re(), knots[k + 1].im()));
                 }
             }
         }

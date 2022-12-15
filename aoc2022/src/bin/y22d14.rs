@@ -26,16 +26,16 @@ fn segment(z0: &Complex<i32>, z1: &Complex<i32>) -> Vec<Complex<i32>> {
 }
 
 fn cave_get(cave: &Grid2D<Material>, z: Complex<i32>) -> Material {
-    *cave.get(*z.im() as usize, *z.re() as usize)
+    *cave.get(z.im() as usize, z.re() as usize)
 }
 
 fn cave_set(cave: &mut Grid2D<Material>, z: Complex<i32>, material: Material) {
-    cave.set(*z.im() as usize, *z.re() as usize, material)
+    cave.set(z.im() as usize, z.re() as usize, material)
 }
 
 fn will_fall_into_abyss(max_depths: &Vec<Option<i32>>, z: Complex<i32>) -> bool {
-    if let Some(max_depth) = max_depths[*z.re() as usize] {
-        *z.im() > max_depth
+    if let Some(max_depth) = max_depths[z.re() as usize] {
+        z.im() > max_depth
     } else {
         true
     }
@@ -52,9 +52,9 @@ fn simulate(structures: &Vec<Vec<Complex<i32>>>) -> usize {
     for endpoints in structures {
         for pair in endpoints.windows(2) {
             for point in segment(&pair[0], &pair[1]) {
-                let max_depth = max_depths.get_mut(*point.re() as usize).unwrap();
+                let max_depth = max_depths.get_mut(point.re() as usize).unwrap();
 
-                *max_depth = Some(max_depth.map_or(*point.im(), |v| max(v, *point.im())));
+                *max_depth = Some(max_depth.map_or(point.im(), |v| max(v, point.im())));
 
                 cave_set(&mut cave, point, Material::Rock);
             }
@@ -141,7 +141,7 @@ fn main() {
 
     let max_segment_depth = structures
         .iter()
-        .map(|v| v.iter().map(|z| *z.im()).max().unwrap())
+        .map(|v| v.iter().map(|z| z.im()).max().unwrap())
         .max()
         .unwrap();
     println!("{}", max_segment_depth);
