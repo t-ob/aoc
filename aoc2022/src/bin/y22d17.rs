@@ -1,4 +1,4 @@
-use std::{cmp::max, str::FromStr};
+use std::{cmp::max, str::FromStr, collections::VecDeque};
 
 #[derive(Clone, Copy)]
 enum Push {
@@ -9,29 +9,34 @@ enum Push {
 struct Chamber {
     jet_pattern: Vec<Push>,
     shapes: Vec<Vec<u8>>,
-    data: Vec<u8>,
+    data: VecDeque<u8>,
+    floor: usize,
     next_push: usize,
     next_shape: usize,
     max_height: usize,
+    floor_max_height: usize,
 }
 
 impl Chamber {
     fn new(jet_pattern: &[Push], shapes: &[Vec<u8>]) -> Self {
         let jet_pattern = Vec::from(jet_pattern);
         let shapes = Vec::from(shapes);
-        let data = vec![0; 1 << 20];
+        // let data = vec![0; 1 << 20];
+        let data = VecDeque::from([0; 1 << 20]);
+        let floor = 0;
         let next_push = 0;
         let next_shape = 0;
         let max_height = 0;
+        let floor_max_height = 0;
 
-        Self { jet_pattern, shapes, data, next_push, next_shape, max_height }
+        Self { jet_pattern, shapes, data, floor, next_push, next_shape, max_height, floor_max_height }
     }
 
     fn drop_shape(&mut self) {
         let mut falling_shape = self.shapes[self.next_shape].clone();
-        let mut height = self.max_height + 3;
+        let mut height = self.floor_max_height + 3;
 
-        println!("{:?}, {:?}", falling_shape, height);
+        // println!("{:?}, {:?}", falling_shape, height);
 
         let mut can_move_down = true;
         while can_move_down {
@@ -41,13 +46,35 @@ impl Chamber {
             if moved_down {
                 height -= 1;
             } else {
-                println!("Shape {:?} unable to move down at {height}", falling_shape);
+                // println!("Shape {:?} unable to move down at {height}", falling_shape);
                 can_move_down = false;
             }
         }
 
-        self.max_height = max(self.max_height, height + falling_shape.len());
+        self.floor_max_height = max(self.floor_max_height, height + falling_shape.len());
         self.next_shape = (self.next_shape + 1) % self.shapes.len();
+
+        // If falling shape caused a floor to be filled, remove unneeded things and
+        // do requeisite bookkeeping
+        // let mut should_refloor = false;
+        for h in 0..falling_shape.len() {
+            if self.data[height + falling_shape.len() - h - 1] == 0x7F {
+                // println!("FLOOR at {}", height + falling_shape.len() - h - 1);
+                self.max_height += height + falling_shape.len() - h - 1;
+                self.floor = height + falling_shape.len() - h - 1;
+                for _ in 0..self.floor {
+                    self.data.pop_front();
+                    self.data.push_back(0);
+                    self.floor_max_height -= 1;
+                }
+
+                break;
+            }
+        }
+
+        if self.next_shape == 0 && self.next_push == 0 {
+            println!("FUCK")
+        }
     }
 
     fn apply_push(&mut self, shape: &mut Vec<u8>, height: usize) {
@@ -132,19 +159,39 @@ fn main() {
 
     // ];
 
-    let mut s = 0;
+    let mut s = 0usize;
     let mut max_height = 0;
-    while s < 2022 {
+    // while s < 2022 {
+    //     chamber.drop_shape();
+
+    //     s += 1;
+
+    //     println!("{}", chamber.max_height + chamber.floor_max_height);
+    // }
+
+    let mut next_print = 1;
+    while s < 1000000000000 { //chamber.jet_pattern.len() {
+        if s == next_print {
+            println!("{s}");
+            next_print *= 10;
+        }
         chamber.drop_shape();
+
+        if chamber.floor_max_height == 0 {
+            println!("Floor at zero {s}")
+        }
 
         s += 1;
 
-        println!("{} - {}", chamber.max_height, chamber.data[chamber.max_height]);
     }
+    println!("{} {} {}", chamber.floor, chamber.floor_max_height, chamber.next_shape);
+    println!("{}", chamber.max_height + chamber.floor_max_height);
+    // 1000000000000
+    // 10000000000
 
-    for (i, r) in chamber.data.iter().enumerate() {
-        if *r == 0x7F {
-            println!("filled: {}", i);
-        }
-    }
+    // for (i, r) in chamber.data.iter().enumerate() {
+    //     if *r == 0x7F {
+    //         println!("filled: {}", i);
+    //     }
+    // }
 }

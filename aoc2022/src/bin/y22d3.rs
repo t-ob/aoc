@@ -2,6 +2,14 @@ use std::str::FromStr;
 
 use aoc2022::d3;
 
+const PRIORITIES: [u32; 1 << 7] = {
+    let mut priorities = [0; 1 << 7];
+
+    priorities['a' as usize] = 1;
+
+    priorities
+};
+
 #[derive(Debug)]
 struct Rucksack(Vec<char>, Vec<char>);
 
