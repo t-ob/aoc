@@ -17,8 +17,9 @@ static const int ROW_THREADS = 32;
 static const int COL_THREADS = 32;
 
 
-__global__ void part2Kernel(const char *in, const char *seqs, const uint8_t *values, uint32_t *out, unsigned int numRows, unsigned int numSeqs)
-{
+__global__ void
+part2Kernel(const char *in, const char *seqs, const uint8_t *values, uint32_t *out, unsigned int numRows,
+            unsigned int numSeqs) {
     __shared__ int32_t sharedIndexes[32][32];
     __shared__ int32_t sharedMaxIndexes[32][32];
     __shared__ uint32_t sharedArgMin[32][32];
@@ -46,7 +47,8 @@ __global__ void part2Kernel(const char *in, const char *seqs, const uint8_t *val
         auto i = 0;
         while (i < MAX_CHARS) {
             auto j = 0;
-            while ((i + j < MAX_CHARS) && in[rowIdx * MAX_CHARS + i + j] != 0 && in[rowIdx * MAX_CHARS + i + j] == seqs[seqIdx * MAX_SEQ_LEN + j]) {
+            while ((i + j < MAX_CHARS) && in[rowIdx * MAX_CHARS + i + j] != 0 &&
+                   in[rowIdx * MAX_CHARS + i + j] == seqs[seqIdx * MAX_SEQ_LEN + j]) {
                 ++j;
             }
 
@@ -64,7 +66,8 @@ __global__ void part2Kernel(const char *in, const char *seqs, const uint8_t *val
         auto i = MAX_CHARS - 1;
         while (i >= 0) {
             auto j = 0;
-            while ((i + j < MAX_CHARS) && in[rowIdx * MAX_CHARS + i + j] != 0 && in[rowIdx * MAX_CHARS + i + j] == seqs[seqIdx * MAX_SEQ_LEN + j]) {
+            while ((i + j < MAX_CHARS) && in[rowIdx * MAX_CHARS + i + j] != 0 &&
+                   in[rowIdx * MAX_CHARS + i + j] == seqs[seqIdx * MAX_SEQ_LEN + j]) {
                 ++j;
             }
 
@@ -89,7 +92,8 @@ __global__ void part2Kernel(const char *in, const char *seqs, const uint8_t *val
             auto leftArgMinCandidate = sharedIndexes[threadIdx.x][leftArgMinIdx];
             auto rightArgMinCandidate = sharedIndexes[threadIdx.x][rightArgMinIdx];
 
-            if ((leftArgMinCandidate < 0 && rightArgMinCandidate < 0) || (leftArgMinCandidate >= 0 && rightArgMinCandidate < 0))  {
+            if ((leftArgMinCandidate < 0 && rightArgMinCandidate < 0) ||
+                (leftArgMinCandidate >= 0 && rightArgMinCandidate < 0)) {
                 sharedArgMin[threadIdx.x][seqIdx] = leftArgMinIdx;
             } else if (leftArgMinCandidate < 0) {
                 sharedArgMin[threadIdx.x][seqIdx] = rightArgMinIdx;
@@ -105,7 +109,8 @@ __global__ void part2Kernel(const char *in, const char *seqs, const uint8_t *val
             auto leftArgMaxCandidate = sharedMaxIndexes[threadIdx.x][leftArgMaxIdx];
             auto rightArgMaxCandidate = sharedMaxIndexes[threadIdx.x][rightArgMaxIdx];
 
-            if ((leftArgMaxCandidate < 0 && rightArgMaxCandidate < 0) || (leftArgMaxCandidate >= 0 && rightArgMaxCandidate < 0)) {
+            if ((leftArgMaxCandidate < 0 && rightArgMaxCandidate < 0) ||
+                (leftArgMaxCandidate >= 0 && rightArgMaxCandidate < 0)) {
                 sharedArgMax[threadIdx.x][seqIdx] = leftArgMaxIdx;
             } else if (leftArgMaxCandidate < 0) {
                 sharedArgMax[threadIdx.x][seqIdx] = rightArgMaxIdx;
@@ -146,14 +151,14 @@ int main() {
     std::string line;
     while (std::getline(std::cin, line)) {
         auto j = 0;
-        for (const auto c : line) {
+        for (const auto c: line) {
             in[MAX_CHARS * i + j] = c;
             ++j;
         }
         ++i;
     }
 
-    char* dIn;
+    char *dIn;
     cudaMalloc(&dIn, sizeof(uint8_t) * ROWS * MAX_CHARS);
     cudaMemcpy(dIn, in, sizeof(uint8_t) * ROWS * MAX_CHARS, cudaMemcpyHostToDevice);
 
@@ -182,8 +187,8 @@ int main() {
     strcpy(hostStrings[17], "eight");
     strcpy(hostStrings[18], "nine");
 
-    char* dStrings;
-    cudaMalloc((void**)&dStrings, numStrings * maxLen * sizeof(char));
+    char *dStrings;
+    cudaMalloc((void **) &dStrings, numStrings * maxLen * sizeof(char));
     cudaMemcpy(dStrings, hostStrings, numStrings * maxLen * sizeof(char), cudaMemcpyHostToDevice);
 
     // Lookup table for tokens by their index
@@ -193,10 +198,10 @@ int main() {
     cudaMemcpy(dValues, hValues, numStrings * sizeof(uint8_t), cudaMemcpyHostToDevice);
 
     // Memory for each block to write its partial sum to
-    uint32_t* dOutPart1;
+    uint32_t *dOutPart1;
     cudaMalloc(&dOutPart1, BLOCKS * sizeof(uint32_t));
 
-    uint32_t* dOutPart2;
+    uint32_t *dOutPart2;
     cudaMalloc(&dOutPart2, BLOCKS * sizeof(uint32_t));
 
     // Launch kernels
@@ -212,12 +217,12 @@ int main() {
     cudaMemcpy(outPart2, dOutPart2, BLOCKS * sizeof(uint32_t), cudaMemcpyDeviceToHost);
 
     uint32_t totalPart1 = 0;
-    for (auto m : outPart1) {
+    for (auto m: outPart1) {
         totalPart1 += m;
     }
 
     uint32_t totalPart2 = 0;
-    for (auto m : outPart2) {
+    for (auto m: outPart2) {
         totalPart2 += m;
     }
 
