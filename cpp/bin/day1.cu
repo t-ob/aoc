@@ -27,6 +27,7 @@ __global__ void part2Kernel(const char *in, const char *seqs, const uint8_t *val
 
     // Initialise shared memory
     sharedIndexes[threadIdx.x][threadIdx.y] = -1;
+    sharedMaxIndexes[threadIdx.x][threadIdx.y] = -1;
     sharedArgMin[threadIdx.x][threadIdx.y] = threadIdx.y;
     sharedArgMax[threadIdx.x][threadIdx.y] = threadIdx.y;
     if (threadIdx.y == 0) sharedSums[threadIdx.x] = 0;
@@ -35,25 +36,46 @@ __global__ void part2Kernel(const char *in, const char *seqs, const uint8_t *val
     auto rowIdx = blockDim.x * blockIdx.x + threadIdx.x;
     auto seqIdx = threadIdx.y;
 
-    // Nothing to do for threads outside of rowIdx or seqIdx
+    // Nothing to do for threads outside rowIdx or seqIdx
     if (rowIdx >= numRows) return;
     if (seqIdx >= numSeqs) return;
 
 
-    auto i = 0;
-    while (i < MAX_CHARS) {
-        auto j = 0;
-        while ((i + j < MAX_CHARS) && in[rowIdx * MAX_CHARS + i + j] == seqs[seqIdx * MAX_SEQ_LEN + j]) {
-            ++j;
-        }
+    // Compute first and last occurrences (if any) of each sequence
+    {
+        auto i = 0;
+        while (i < MAX_CHARS) {
+            auto j = 0;
+            while ((i + j < MAX_CHARS) && in[rowIdx * MAX_CHARS + i + j] != 0 && in[rowIdx * MAX_CHARS + i + j] == seqs[seqIdx * MAX_SEQ_LEN + j]) {
+                ++j;
+            }
 
-        // Check if entire token has been found
-        if (seqs[seqIdx * MAX_SEQ_LEN + j] == 0) {
-            sharedIndexes[threadIdx.x][seqIdx] = i;
-            break;
-        }
+            // Check if entire token has been found
+            if (seqs[seqIdx * MAX_SEQ_LEN + j] == 0) {
+                sharedIndexes[threadIdx.x][seqIdx] = i;
+                break;
+            }
 
-        ++i;
+            ++i;
+        }
+    }
+
+    {
+        auto i = MAX_CHARS - 1;
+        while (i >= 0) {
+            auto j = 0;
+            while ((i + j < MAX_CHARS) && in[rowIdx * MAX_CHARS + i + j] != 0 && in[rowIdx * MAX_CHARS + i + j] == seqs[seqIdx * MAX_SEQ_LEN + j]) {
+                ++j;
+            }
+
+            // Check if entire token has been found
+            if (seqs[seqIdx * MAX_SEQ_LEN + j] == 0) {
+                sharedMaxIndexes[threadIdx.x][seqIdx] = i;
+                break;
+            }
+
+            --i;
+        }
     }
 
     __syncthreads();
@@ -80,8 +102,8 @@ __global__ void part2Kernel(const char *in, const char *seqs, const uint8_t *val
             auto leftArgMaxIdx = sharedArgMax[threadIdx.x][seqIdx];
             auto rightArgMaxIdx = sharedArgMax[threadIdx.x][seqIdx + s];
 
-            auto leftArgMaxCandidate = sharedIndexes[threadIdx.x][leftArgMaxIdx];
-            auto rightArgMaxCandidate = sharedIndexes[threadIdx.x][rightArgMaxIdx];
+            auto leftArgMaxCandidate = sharedMaxIndexes[threadIdx.x][leftArgMaxIdx];
+            auto rightArgMaxCandidate = sharedMaxIndexes[threadIdx.x][rightArgMaxIdx];
 
             if ((leftArgMaxCandidate < 0 && rightArgMaxCandidate < 0) || (leftArgMaxCandidate >= 0 && rightArgMaxCandidate < 0)) {
                 sharedArgMax[threadIdx.x][seqIdx] = leftArgMaxIdx;
@@ -171,28 +193,41 @@ int main() {
     cudaMemcpy(dValues, hValues, numStrings * sizeof(uint8_t), cudaMemcpyHostToDevice);
 
     // Memory for each block to write its partial sum to
-    uint32_t* dOut;
-    cudaMalloc(&dOut, BLOCKS * sizeof(uint32_t));
+    uint32_t* dOutPart1;
+    cudaMalloc(&dOutPart1, BLOCKS * sizeof(uint32_t));
 
-    // Launch kernel
+    uint32_t* dOutPart2;
+    cudaMalloc(&dOutPart2, BLOCKS * sizeof(uint32_t));
+
+    // Launch kernels
     dim3 threadsPerBlock(ROW_THREADS, COL_THREADS);
-    part2Kernel<<<BLOCKS, threadsPerBlock>>>(dIn, dStrings, dValues, dOut, i, 10);
+    part2Kernel<<<BLOCKS, threadsPerBlock>>>(dIn, dStrings, dValues, dOutPart1, i, 10);
+    part2Kernel<<<BLOCKS, threadsPerBlock>>>(dIn, dStrings, dValues, dOutPart2, i, 19);
     cudaDeviceSynchronize();
 
-    uint32_t out[BLOCKS];
-    cudaMemcpy(out, dOut, BLOCKS * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    uint32_t outPart1[BLOCKS];
+    cudaMemcpy(outPart1, dOutPart1, BLOCKS * sizeof(uint32_t), cudaMemcpyDeviceToHost);
 
-    uint32_t total = 0;
-    for (auto m : out) {
-        total += m;
+    uint32_t outPart2[BLOCKS];
+    cudaMemcpy(outPart2, dOutPart2, BLOCKS * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
+    uint32_t totalPart1 = 0;
+    for (auto m : outPart1) {
+        totalPart1 += m;
     }
 
-    std::cout << total << std::endl;
+    uint32_t totalPart2 = 0;
+    for (auto m : outPart2) {
+        totalPart2 += m;
+    }
+
+    std::cout << totalPart1 << std::endl;
+    std::cout << totalPart2 << std::endl;
 
     cudaFree(dIn);
     cudaFree(dStrings);
     cudaFree(dValues);
-    cudaFree(dOut);
+    cudaFree(dOutPart1);
 
     return 0;
 }
