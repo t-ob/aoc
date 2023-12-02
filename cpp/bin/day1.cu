@@ -2,133 +2,197 @@
 // max 52 chars
 
 // Kernel definition
+#include <cstring>
 #include <string>
 #include <iostream>
 
 // in[1024][64], out[1024]
 
 static const int ROWS = 1024;
-static const int COLS = 64;
-static const int THREADS_PER_BLOCK = 256;
+static const int MAX_CHARS = 64;
+static const int MAX_SEQ_LEN = 8;
 
-__global__ void part1Kernel(uint8_t *in, uint8_t *out, unsigned int numRows)
+static const int BLOCKS = 32;
+static const int ROW_THREADS = 32;
+static const int COL_THREADS = 32;
+
+
+__global__ void part2Kernel(const char *in, const char *seqs, const uint8_t *values, uint32_t *out, unsigned int numRows, unsigned int numSeqs)
 {
-    auto i = blockDim.x * blockIdx.x + threadIdx.x;
-    if (i >= numRows) return;
+    __shared__ int32_t sharedIndexes[32][32];
+    __shared__ int32_t sharedMaxIndexes[32][32];
+    __shared__ uint32_t sharedArgMin[32][32];
+    __shared__ uint32_t sharedArgMax[32][32];
+    __shared__ uint32_t sharedSums[32];
 
-    uint8_t nums[2];
-
-    auto k = 0;
-
-    for (auto j = 0; j < 64; ++j) {
-        auto c = in[COLS * i + j];
-        if (c < '0' || c > '9') continue;
-
-        if (k == 0) {
-            nums[0] = c - '0';
-            nums[1] = c - '0';
-            k = 1;
-        } else {
-            nums[1] = c - '0';
-        }
-    }
-
-    out[i] = 10 * nums[0] + nums[1];
-}
-
-__global__ void part2Kernel(uint8_t *in, int8_t *out, unsigned int numRows)
-{
-    auto i = blockDim.x * blockIdx.x + threadIdx.x;
-    if (i >= numRows) return;
-
-    uint8_t nums[2];
-
-    auto k = 0;
-    auto l = in[COLS * i + COLS - 1];
-
-    for (auto j = 0; j < 63; ++j) {
-        auto c = in[COLS * i + j];
-        if (c < '0' || c > '9') continue;
-
-        if (k == 0) {
-            nums[0] = c - '0';
-            nums[1] = c - '0';
-            k = 1;
-        } else {
-            nums[1] = c - '0';
-        }
-    }
-
-    out[i] = 10 * nums[0] + nums[1];
-}
-
-__global__ void sumKernel(uint8_t *input, uint32_t *partialSums, int size) {
-    __shared__ uint32_t shared[THREADS_PER_BLOCK];
-    auto tid = threadIdx.x;
-    auto i = blockIdx.x * blockDim.x + threadIdx.x;
-
-    shared[tid] = (i < size) ? input[i] : 0;
+    // Initialise shared memory
+    sharedIndexes[threadIdx.x][threadIdx.y] = -1;
+    sharedArgMin[threadIdx.x][threadIdx.y] = threadIdx.y;
+    sharedArgMax[threadIdx.x][threadIdx.y] = threadIdx.y;
+    if (threadIdx.y == 0) sharedSums[threadIdx.x] = 0;
     __syncthreads();
 
-    for (auto s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (tid < s) {
-            shared[tid] += shared[tid + s];
+    auto rowIdx = blockDim.x * blockIdx.x + threadIdx.x;
+    auto seqIdx = threadIdx.y;
+
+    // Nothing to do for threads outside of rowIdx or seqIdx
+    if (rowIdx >= numRows) return;
+    if (seqIdx >= numSeqs) return;
+
+
+    auto i = 0;
+    while (i < MAX_CHARS) {
+        auto j = 0;
+        while ((i + j < MAX_CHARS) && in[rowIdx * MAX_CHARS + i + j] == seqs[seqIdx * MAX_SEQ_LEN + j]) {
+            ++j;
+        }
+
+        // Check if entire token has been found
+        if (seqs[seqIdx * MAX_SEQ_LEN + j] == 0) {
+            sharedIndexes[threadIdx.x][seqIdx] = i;
+            break;
+        }
+
+        ++i;
+    }
+
+    __syncthreads();
+
+    // Compute argmins and argmaxes
+    for (auto s = COL_THREADS >> 1; s > 0; s >>= 1) {
+        if (seqIdx < s) {
+            auto leftArgMinIdx = sharedArgMin[threadIdx.x][seqIdx];
+            auto rightArgMinIdx = sharedArgMin[threadIdx.x][seqIdx + s];
+
+            auto leftArgMinCandidate = sharedIndexes[threadIdx.x][leftArgMinIdx];
+            auto rightArgMinCandidate = sharedIndexes[threadIdx.x][rightArgMinIdx];
+
+            if ((leftArgMinCandidate < 0 && rightArgMinCandidate < 0) || (leftArgMinCandidate >= 0 && rightArgMinCandidate < 0))  {
+                sharedArgMin[threadIdx.x][seqIdx] = leftArgMinIdx;
+            } else if (leftArgMinCandidate < 0) {
+                sharedArgMin[threadIdx.x][seqIdx] = rightArgMinIdx;
+            } else if (leftArgMinCandidate < rightArgMinCandidate) {
+                sharedArgMin[threadIdx.x][seqIdx] = leftArgMinIdx;
+            } else {
+                sharedArgMin[threadIdx.x][seqIdx] = rightArgMinIdx;
+            }
+
+            auto leftArgMaxIdx = sharedArgMax[threadIdx.x][seqIdx];
+            auto rightArgMaxIdx = sharedArgMax[threadIdx.x][seqIdx + s];
+
+            auto leftArgMaxCandidate = sharedIndexes[threadIdx.x][leftArgMaxIdx];
+            auto rightArgMaxCandidate = sharedIndexes[threadIdx.x][rightArgMaxIdx];
+
+            if ((leftArgMaxCandidate < 0 && rightArgMaxCandidate < 0) || (leftArgMaxCandidate >= 0 && rightArgMaxCandidate < 0)) {
+                sharedArgMax[threadIdx.x][seqIdx] = leftArgMaxIdx;
+            } else if (leftArgMaxCandidate < 0) {
+                sharedArgMax[threadIdx.x][seqIdx] = rightArgMaxIdx;
+            } else if (leftArgMaxCandidate < rightArgMaxCandidate) {
+                sharedArgMax[threadIdx.x][seqIdx] = rightArgMaxIdx;
+            } else {
+                sharedArgMax[threadIdx.x][seqIdx] = leftArgMaxIdx;
+            }
         }
         __syncthreads();
     }
 
-    if (tid == 0) partialSums[blockIdx.x] = shared[0];
+    // Compute partial sum for block
+    if (seqIdx == 0) {
+        auto a = 10 * values[sharedArgMin[threadIdx.x][0]] + values[sharedArgMax[threadIdx.x][0]];
+        sharedSums[threadIdx.x] = a;
+        __syncthreads();
+
+        // Compute sum of computed values in block
+        for (auto s = ROW_THREADS >> 1; s > 0; s >>= 1) {
+            if (threadIdx.x < s) {
+                sharedSums[threadIdx.x] += sharedSums[threadIdx.x + s];
+            }
+            __syncthreads();
+        }
+
+        if (threadIdx.x == 0) out[blockIdx.x] = sharedSums[0];
+    }
 }
 
 
-
 int main() {
-    auto in = (uint8_t *) malloc(ROWS * COLS);
-    auto out = (uint8_t *) malloc(ROWS);
-    std::fill(in, in + (ROWS * COLS), static_cast<uint8_t>(0));
-    std::fill(out, out + ROWS, static_cast<uint8_t>(0));
+    // Input buffer
+    auto in = (char *) malloc(ROWS * MAX_CHARS);
+    std::fill(in, in + (ROWS * MAX_CHARS), static_cast<uint8_t>(0));
 
     auto i = 0;
-
     std::string line;
     while (std::getline(std::cin, line)) {
         auto j = 0;
         for (const auto c : line) {
-            in[COLS * i + j] = c;
+            in[MAX_CHARS * i + j] = c;
             ++j;
         }
         ++i;
     }
 
-    uint8_t* dIn;
-    cudaMalloc(&dIn, sizeof(uint8_t) * ROWS * COLS);
-    uint8_t* dOut;
-    cudaMalloc(&dOut, sizeof(uint8_t) * ROWS);
+    char* dIn;
+    cudaMalloc(&dIn, sizeof(uint8_t) * ROWS * MAX_CHARS);
+    cudaMemcpy(dIn, in, sizeof(uint8_t) * ROWS * MAX_CHARS, cudaMemcpyHostToDevice);
 
+    // All possible strings to search
+    const int numStrings = 19;
+    const int maxLen = 8;
+    char hostStrings[numStrings][maxLen];
 
-    cudaMemcpy(dIn, in, sizeof(uint8_t) * ROWS * COLS, cudaMemcpyHostToDevice);
+    strcpy(hostStrings[0], "0");
+    strcpy(hostStrings[1], "1");
+    strcpy(hostStrings[2], "2");
+    strcpy(hostStrings[3], "3");
+    strcpy(hostStrings[4], "4");
+    strcpy(hostStrings[5], "5");
+    strcpy(hostStrings[6], "6");
+    strcpy(hostStrings[7], "7");
+    strcpy(hostStrings[8], "8");
+    strcpy(hostStrings[9], "9");
+    strcpy(hostStrings[10], "one");
+    strcpy(hostStrings[11], "two");
+    strcpy(hostStrings[12], "three");
+    strcpy(hostStrings[13], "four");
+    strcpy(hostStrings[14], "five");
+    strcpy(hostStrings[15], "six");
+    strcpy(hostStrings[16], "seven");
+    strcpy(hostStrings[17], "eight");
+    strcpy(hostStrings[18], "nine");
 
-    auto blocks = (ROWS + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-    part1Kernel<<<blocks, THREADS_PER_BLOCK>>>(dIn, dOut, i);
+    char* dStrings;
+    cudaMalloc((void**)&dStrings, numStrings * maxLen * sizeof(char));
+    cudaMemcpy(dStrings, hostStrings, numStrings * maxLen * sizeof(char), cudaMemcpyHostToDevice);
 
-    uint32_t *dPartialSums;
-    cudaMalloc((void**)&dPartialSums, blocks * sizeof(uint32_t));
+    // Lookup table for tokens by their index
+    uint8_t hValues[numStrings] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    uint8_t *dValues;
+    cudaMalloc(&dValues, numStrings * sizeof(uint8_t));
+    cudaMemcpy(dValues, hValues, numStrings * sizeof(uint8_t), cudaMemcpyHostToDevice);
 
-    sumKernel<<<blocks, THREADS_PER_BLOCK>>>(dOut, dPartialSums, i);
+    // Memory for each block to write its partial sum to
+    uint32_t* dOut;
+    cudaMalloc(&dOut, BLOCKS * sizeof(uint32_t));
 
-    uint32_t partialSums[blocks];
-    cudaMemcpy(partialSums, dPartialSums, blocks * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    // Launch kernel
+    dim3 threadsPerBlock(ROW_THREADS, COL_THREADS);
+    part2Kernel<<<BLOCKS, threadsPerBlock>>>(dIn, dStrings, dValues, dOut, i, 10);
+    cudaDeviceSynchronize();
 
-    uint32_t totalSum = 0;
-    for (auto b = 0; b < blocks; b++) {
-        totalSum += partialSums[b];
+    uint32_t out[BLOCKS];
+    cudaMemcpy(out, dOut, BLOCKS * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
+    uint32_t total = 0;
+    for (auto m : out) {
+        total += m;
     }
 
-    std::cout << std::to_string(totalSum) << std::endl;
+    std::cout << total << std::endl;
 
     cudaFree(dIn);
+    cudaFree(dStrings);
+    cudaFree(dValues);
     cudaFree(dOut);
-    cudaFree(dPartialSums);
 
     return 0;
 }
