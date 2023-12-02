@@ -147,15 +147,15 @@ int main() {
     auto in = (char *) malloc(ROWS * MAX_CHARS);
     std::fill(in, in + (ROWS * MAX_CHARS), static_cast<uint8_t>(0));
 
-    auto i = 0;
+    auto numLines = 0;
     std::string line;
     while (std::getline(std::cin, line)) {
         auto j = 0;
         for (const auto c: line) {
-            in[MAX_CHARS * i + j] = c;
+            in[MAX_CHARS * numLines + j] = c;
             ++j;
         }
-        ++i;
+        ++numLines;
     }
 
     char *dIn;
@@ -206,8 +206,8 @@ int main() {
 
     // Launch kernels
     dim3 threadsPerBlock(ROW_THREADS, COL_THREADS);
-    part2Kernel<<<BLOCKS, threadsPerBlock>>>(dIn, dStrings, dValues, dOutPart1, i, 10);
-    part2Kernel<<<BLOCKS, threadsPerBlock>>>(dIn, dStrings, dValues, dOutPart2, i, 19);
+    part2Kernel<<<BLOCKS, threadsPerBlock>>>(dIn, dStrings, dValues, dOutPart1, numLines, 10);
+    part2Kernel<<<BLOCKS, threadsPerBlock>>>(dIn, dStrings, dValues, dOutPart2, numLines, 19);
     cudaDeviceSynchronize();
 
     uint32_t outPart1[BLOCKS];
@@ -233,6 +233,7 @@ int main() {
     cudaFree(dStrings);
     cudaFree(dValues);
     cudaFree(dOutPart1);
+    cudaFree(dOutPart2);
 
     return 0;
 }
